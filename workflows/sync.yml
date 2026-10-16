@@ -1,0 +1,47 @@
+name: Sync Google Sheets ke InfinityFree
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub Actions menggunakan UTC; 00:00 UTC = 07:00 WIB
+    - cron: "*/30 * * * *"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r sync/requirements.txt
+
+      - name: Pull and parse Google Sheets
+        working-directory: sync
+        run: python sync_drawing.py config_setting.xlsx 7
+
+      - name: Prepare InfinityFree data file
+        run: |
+          mkdir -p deploy-data
+          python .github/scripts/prepare_deploy_data.py sync/drawing_data.json data/db.json deploy-data/db.json
+
+      - name: Upload only generated data to InfinityFree
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.INFINITY_FTP_SERVER }}
+          username: ${{ secrets.INFINITY_FTP_USERNAME }}
+          password: ${{ secrets.INFINITY_FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./deploy-data/
+          server-dir: /htdocs/data/
+          state-name: .ftp-deploy-sync-state.json
+          dangerous-clean-slate: false
+          log-level: minimal
