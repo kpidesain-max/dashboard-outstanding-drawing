@@ -152,7 +152,8 @@ def run_once(cfg, days, push):
     except Exception as e:
         errs.append({"p": "HPS", "error": str(e)})
         print("GAGAL HPS -", e)
-    payload = {"generated": dt.datetime.now().isoformat(timespec="minutes"),
+    wib_time = dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=7)
+    payload = {"generated": wib_time.strftime("%Y-%m-%dT%H:%M"),
                "rows": rows, "errors": errs}
     if hps is not None:          # kalau HPS gagal diambil, data HPS lama di dashboard dibiarkan
         payload["hps"] = hps
