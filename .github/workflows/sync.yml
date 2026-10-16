@@ -14,14 +14,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip
 
       - name: Install dependencies
-        run: pip install -r sync/requirements.txt
+        run: |
+          pip install pandas openpyxl
 
       - name: Pull and parse Google Sheets
         working-directory: sync
