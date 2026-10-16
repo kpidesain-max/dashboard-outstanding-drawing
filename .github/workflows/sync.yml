@@ -32,7 +32,7 @@ jobs:
           mkdir -p deploy-data
           python .github/scripts/prepare_deploy_data.py sync/drawing_data.json data/db.json deploy-data/db.json
 
-      - name: Upload only generated data to InfinityFree
+      - name: Upload data to InfinityFree
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.INFINITY_FTP_SERVER }}
