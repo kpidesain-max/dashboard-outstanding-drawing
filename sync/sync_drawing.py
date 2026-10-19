@@ -14,7 +14,7 @@ import pandas as pd
 STATUS_HEADERS = ("STATUS DRAWING", "STATUS")
 
 # Nama kolom nomor drawing. LCU LD PN 124 M memakai 'ATCH'.
-NO_DWG_HEADERS = ("NO DWG", "ATCH", "NO. DWG")
+NO_DWG_HEADERS = ("NO DWG", "DRAWING NO", "ATCH", "NO. DWG")
 
 # Google Sheets mengekspor tanggal dengan nama bulan Indonesia (2026-Okt-14),
 # yang tidak selalu dikenali pandas.
