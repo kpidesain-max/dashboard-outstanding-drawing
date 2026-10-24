@@ -88,7 +88,7 @@ def process(raw, proyek, days=7, today=None):
 import re
 
 # singkatan PIC di rekap HPS -> nama yang ditampilkan di dashboard (tambahkan sesuai kebutuhan)
-PIC_NAMA = {"DRH": "Dadang", "NZR": "Nizar", "KSA": "Kartika", "ARP": "Ari"}
+PIC_NAMA = {"DRH": "Dadang", "NZR": "Nizar", "KSA": "Kartika", "ARP": "Ari", "AKB":"Akbar"}
 BULAN = {"JAN": 1, "FEB": 2, "MAR": 3, "APR": 4, "MEI": 5, "MAY": 5, "JUN": 6, "JUL": 7,
          "AGU": 8, "AUG": 8, "AGT": 8, "SEP": 9, "OKT": 10, "OCT": 10, "NOV": 11, "NOP": 11, "DES": 12, "DEC": 12}
 NAMA_BLN = ["", "JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOV", "DES"]
