@@ -5,7 +5,7 @@ lalu hasilkan drawing_data.json untuk diunggah admin di dashboard.
 Jalankan: python sync_drawing.py [config_setting.xlsx] [hari_ke_depan=7] [--push http://localhost:3000] [--every 30]
 Butuh: pip install pandas openpyxl"""
 import sys, json, datetime as dt
-import re, urllib.request, csv, io
+import re
 import pandas as pd
 
 # Nama kolom status drawing. Tiap sheet punya DUA kolom "STATUS": satu catatan
@@ -129,97 +129,6 @@ def process_hps(raw):
     out.sort(key=lambda x: (x["iso"] or "9999", x["p"]))
     return out
 
-def scan_recap(cfg):
-    """Baca sheet 'Rekap' di config_setting.xlsx.
-    Untuk tiap proyek (baris 2 ke bawah), download CSV Google Sheets,
-    cari tabel 'SHIPYARD DRAWING', ambil nilai kolom 'Release' dan 'In Process'
-    dari baris 'Total'.
-    Kembalikan dict: {'NAMA PROYEK': {'release': int, 'in_process': int}}
-    """
-    import urllib.request, csv, io
-
-    def _to_int(v):
-        """Konversi string angka (misal '1.234' atau '1,234') ke int."""
-        if v is None:
-            return None
-        s = str(v).strip().replace(",", "").replace(".", "").replace(";", "")
-        try:
-            return int(float(s))
-        except (ValueError, TypeError):
-            return None
-
-    result = {}
-    try:
-        rekap = pd.read_excel(cfg, sheet_name="Rekap")
-    except Exception as e:
-        print("GAGAL membaca sheet Rekap:", e)
-        return result
-
-    for _, row in rekap.iterrows():
-        nama = str(row.iloc[0]).strip() if row.iloc[0] else ""
-        url = str(row.iloc[1]).strip() if len(row) > 1 and row.iloc[1] else ""
-        if not nama or not url or not url.startswith("http"):
-            continue
-
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=20) as resp:
-                content = resp.read().decode("utf-8", errors="replace")
-
-            reader = csv.reader(io.StringIO(content))
-            rows = list(reader)
-
-            # Cari baris "SHIPYARD DRAWING"
-            shipyard_idx = None
-            for i, r in enumerate(rows):
-                if r and r[0].strip().upper() == "SHIPYARD DRAWING":
-                    shipyard_idx = i
-                    break
-
-            if shipyard_idx is None:
-                print(f"  ⚠️  {nama}: tabel SHIPYARD DRAWING tidak ditemukan")
-                continue
-
-            # Header kolom ada di baris setelah SHIPYARD DRAWING
-            header_row = rows[shipyard_idx + 1] if shipyard_idx + 1 < len(rows) else []
-            cols = [str(c).strip().upper() for c in header_row]
-
-            rel_idx = None
-            proc_idx = None
-            for i, c in enumerate(cols):
-                if c == "RELEASE":
-                    rel_idx = i
-                elif c in ("IN PROCESS", "INPROCESS", "IN_PROCESS"):
-                    proc_idx = i
-
-            if rel_idx is None:
-                print(f"  ⚠️  {nama}: kolom Release tidak ditemukan")
-                continue
-
-            # Cari baris "Total"
-            total_row = None
-            for i in range(shipyard_idx, len(rows)):
-                r = rows[i]
-                if r and r[0].strip().upper() == "TOTAL":
-                    total_row = r
-                    break
-
-            if not total_row:
-                print(f"  ⚠️  {nama}: baris Total tidak ditemukan")
-                continue
-
-            rel = _to_int(total_row[rel_idx]) if rel_idx < len(total_row) else None
-            proc = _to_int(total_row[proc_idx]) if proc_idx is not None and proc_idx < len(total_row) else None
-
-            result[nama.upper()] = {"release": rel, "in_process": proc}
-            print(f"  ✓  {nama}: Release={rel}, InProcess={proc}")
-
-        except Exception as e:
-            print(f"  ❌  {nama}: {e}")
-
-    return result
-
-
 def run_once(cfg, days, push):
     proj = pd.read_excel(cfg, sheet_name="Proyek")
     rows, errs, seen = [], [], {}
@@ -243,12 +152,9 @@ def run_once(cfg, days, push):
     except Exception as e:
         errs.append({"p": "HPS", "error": str(e)})
         print("GAGAL HPS -", e)
-
-    # Scan sheet "Rekap" untuk Total Release & In Process tiap proyek
-    recap = scan_recap(cfg)
     wib_time = dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=7)
     payload = {"generated": wib_time.strftime("%Y-%m-%dT%H:%M"),
-               "rows": rows, "errors": errs, "recap": recap}
+               "rows": rows, "errors": errs}
     if hps is not None:          # kalau HPS gagal diambil, data HPS lama di dashboard dibiarkan
         payload["hps"] = hps
     with open("drawing_data.json", "w", encoding="utf-8") as f:
