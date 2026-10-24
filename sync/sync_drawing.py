@@ -5,7 +5,7 @@ lalu hasilkan drawing_data.json untuk diunggah admin di dashboard.
 Jalankan: python sync_drawing.py [config_setting.xlsx] [hari_ke_depan=7] [--push http://localhost:3000] [--every 30]
 Butuh: pip install pandas openpyxl"""
 import sys, json, datetime as dt
-import re
+import re, urllib.request, csv, io
 import pandas as pd
 
 # Nama kolom status drawing. Tiap sheet punya DUA kolom "STATUS": satu catatan
@@ -129,6 +129,92 @@ def process_hps(raw):
     out.sort(key=lambda x: (x["iso"] or "9999", x["p"]))
     return out
 
+def scan_recap(cfg):
+    """Baca sheet 'Rekap' di config_setting.xlsx.
+    Untuk tiap proyek, download CSV, cari tabel 'Count of STATUS',
+    ambil dari baris 'Total Keseluruhan':
+      - release  = nilai kolom FINISH
+      - in_process = ON TRACK + OVERDUE + WARNING
+    Kembalikan dict: {'NAMA PROYEK': {'release': int, 'in_process': int}}
+    """
+    import urllib.request, csv, io
+
+    def _to_int(v):
+        if v is None: return None
+        s = str(v).strip().replace(",", "").replace(".", "").replace(";", "")
+        try: return int(float(s))
+        except (ValueError, TypeError): return None
+
+    result = {}
+    try:
+        rekap = pd.read_excel(cfg, sheet_name="Rekap")
+    except Exception as e:
+        print("GAGAL membaca sheet Rekap:", e)
+        return result
+
+    for _, row in rekap.iterrows():
+        nama = str(row.iloc[0]).strip() if row.iloc[0] else ""
+        url = str(row.iloc[1]).strip() if len(row) > 1 and row.iloc[1] else ""
+        if not nama or not url or not url.startswith("http"):
+            continue
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            content = urllib.request.urlopen(req, timeout=20).read().decode("utf-8", errors="replace")
+            reader = csv.reader(io.StringIO(content))
+            rows = list(reader)
+
+            # Cari tabel "Count of STATUS" atau "COUNT OF"
+            tbl_start = None
+            for i, r in enumerate(rows):
+                if r and ("COUNT OF STATUS" in r[0].upper() or "COUNT OF" in r[0].upper()):
+                    tbl_start = i
+                    break
+            if tbl_start is None:
+                print(f"  ⚠️  {nama}: tabel 'Count of STATUS' tidak ditemukan")
+                continue
+
+            # Header kolom ada di baris setelah "Count of STATUS" atau di baris itu sendiri
+            # Struktur: [Count of STATUS][STATUS][...]  ->  header = baris(tbl_start+1)
+            header_idx = tbl_start + 1
+            if header_idx >= len(rows): continue
+            header_row = rows[header_idx]
+            cols = [str(c).strip().upper() for c in header_row]
+
+            # Cari index kolom FINISH, ON TRACK, OVERDUE, WARNING
+            idx_finish = cols.index("FINISH") if "FINISH" in cols else None
+            idx_ontrack = cols.index("ON TRACK") if "ON TRACK" in cols else None
+            idx_overdue = cols.index("OVERDUE") if "OVERDUE" in cols else None
+            idx_warning = cols.index("WARNING") if "WARNING" in cols else None
+
+            if idx_finish is None:
+                print(f"  ⚠️  {nama}: kolom FINISH tidak ditemukan")
+                continue
+
+            # Cari baris "Total Keseluruhan"
+            total_row = None
+            for i in range(tbl_start, len(rows)):
+                r = rows[i]
+                if r and str(r[0]).strip().upper() == "TOTAL KESELURUHAN":
+                    total_row = r
+                    break
+            if not total_row:
+                print(f"  ⚠️  {nama}: baris 'Total Keseluruhan' tidak ditemukan")
+                continue
+
+            rel = _to_int(total_row[idx_finish]) if idx_finish < len(total_row) else None
+            # in_process = ON TRACK + OVERDUE + WARNING
+            in_proc = 0
+            for idx in [idx_ontrack, idx_overdue, idx_warning]:
+                v = _to_int(total_row[idx]) if idx is not None and idx < len(total_row) else 0
+                if v is not None: in_proc += v
+
+            result[nama.upper()] = {"release": rel, "in_process": in_proc}
+            print(f"  ✓  {nama}: Release={rel}, InProcess={in_proc}")
+        except Exception as e:
+            print(f"  ❌  {nama}: {e}")
+    return result
+
+
 def run_once(cfg, days, push):
     proj = pd.read_excel(cfg, sheet_name="Proyek")
     rows, errs, seen = [], [], {}
@@ -152,9 +238,12 @@ def run_once(cfg, days, push):
     except Exception as e:
         errs.append({"p": "HPS", "error": str(e)})
         print("GAGAL HPS -", e)
+
+    # Scan sheet "Rekap" untuk Total Release & In Process tiap proyek
+    recap = scan_recap(cfg)
     wib_time = dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=7)
     payload = {"generated": wib_time.strftime("%Y-%m-%dT%H:%M"),
-               "rows": rows, "errors": errs}
+               "rows": rows, "errors": errs, "recap": recap}
     if hps is not None:          # kalau HPS gagal diambil, data HPS lama di dashboard dibiarkan
         payload["hps"] = hps
     with open("drawing_data.json", "w", encoding="utf-8") as f:
