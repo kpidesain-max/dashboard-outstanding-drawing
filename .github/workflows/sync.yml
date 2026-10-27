@@ -45,3 +45,7 @@ jobs:
           state-name: .ftp-deploy-sync-state.json
           dangerous-clean-slate: false
           log-level: minimal
+
+      - name: Verify deployed data
+        run: |
+          sleep 5
