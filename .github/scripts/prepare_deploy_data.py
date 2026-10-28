@@ -27,6 +27,10 @@ def main() -> int:
     if "hps" in drawings:
         payload["hps"] = {"generated": drawings.get("generated", ""), "rows": drawings["hps"]}
 
+    # Copy recap directly from drawing_data.json (hasil GitHub Actions)
+    if "recap" in drawings:
+        payload["recap"] = drawings["recap"]
+
     local_db = Path(local_db_json)
     if local_db.exists():
         try:
