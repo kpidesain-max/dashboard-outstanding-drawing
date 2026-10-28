@@ -1,0 +1,38 @@
+{
+  "LPD UAE 163 M": {
+    "release": "2202",
+    "in_process": "182"
+  },
+  "PENGAWASAN & PELAYANAN PULAU": {
+    "release": "391",
+    "in_process": "87"
+  },
+  "FRIGATE MERAH PUTIH 140 M": {
+    "release": "3050",
+    "in_process": null
+  },
+  "GEOMARIN V": {
+    "release": "180",
+    "in_process": "338"
+  },
+  "KSOT": {
+    "release": "134",
+    "in_process": "0"
+  },
+  "LD PHILLIPINE NAVY 124 M": {
+    "release": "2175",
+    "in_process": "13"
+  },
+  "LCU LD PHILLIPINE 124 M": {
+    "release": "171",
+    "in_process": null
+  },
+  "KSSR 18 M": {
+    "release": "215",
+    "in_process": "0"
+  },
+  "KSR 20 M": {
+    "release": "76",
+    "in_process": "129"
+  }
+}
